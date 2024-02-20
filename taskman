@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+#
+#  taskman -- Command Line Interface (CLI) for Task Scheduler.
+#
+#  Copyright (C) 2024 Guilherme Philippi <guilherme.philippi@hotmail.com>
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+""""
+
+Usage:
+    python task_scheduler_cli.py add <name> [--priority PRIORITY] [--estimated_time ESTIMATED_TIME] [--deadline DEADLINE]
+    python task_scheduler_cli.py list
+    python task_scheduler_cli.py update <name> [--priority PRIORITY] [--estimated_time ESTIMATED_TIME] [--deadline DEADLINE] [--quiet]
+    python task_scheduler_cli.py complete <name> [--partial] [--quiet]
+    python task_scheduler_cli.py cancel <name> [--quiet]
+    python task_scheduler_cli.py daily [--total_time TOTAL_TIME]
+
+Options:
+    add                     Add a new task.
+    list                    List all tasks.
+    update                  Update an existing task.
+    complete                Mark a task as completed.
+    cancel                  Cancel a task.
+    daily                   Generate daily task list.
+
+Arguments:
+    <name>                  Name of the task (for 'add', 'update', 'complete', and 'cancel').
+
+Options for 'add':
+    --priority PRIORITY     Priority of the task (low, medium, high) [default: low].
+    --estimated_time ESTIMATED_TIME   Estimated time for the task (in hours) [default: 0].
+    --deadline DEADLINE     Deadline of the task (format: YYYY-MM-DD).
+
+Options for 'update':
+    --priority PRIORITY     New priority of the task (low, medium, high).
+    --estimated_time ESTIMATED_TIME   New estimated time for the task (in hours).
+    --deadline DEADLINE     New deadline of the task (format: YYYY-MM-DD).
+    --quiet                 Use the first matching task ID without user interaction.
+
+Options for 'complete':
+    --partial               Mark the task as partially completed.
+    --quiet                 Use the first matching task ID without user interaction.
+
+Options for 'cancel':
+    --quiet                 Use the first matching task ID without user interaction.
+
+Options for 'daily':
+    --total_time TOTAL_TIME Total available time for the daily task list (in hours).
+
+Example:
+    python task_scheduler_cli.py add "Study for exam" --priority high --estimated_time 4 --deadline 2024-02-19
+    python task_scheduler_cli.py list
+    python task_scheduler_cli.py update "Study for exam" --priority high --deadline 2024-02-25 --quiet
+    python task_scheduler_cli.py complete "Study for exam" --quiet
+    python task_scheduler_cli.py cancel "Study for exam" --quiet
+    python task_scheduler_cli.py daily --total_time 16
+"""
+
+import argparse
+from task_scheduler import TaskScheduler, Task, Priority
+from datetime import datetime
+
+def add_task(args):
+    """Add a new task."""
+    try:
+        priority_map = {"low": Priority.LOW, "medium": Priority.MEDIUM, "high": Priority.HIGH}
+        priority = priority_map[args.priority]
+        deadline = datetime.strptime(args.deadline, "%Y-%m-%d") if args.deadline else None
+        task = Task(args.name, priority, args.estimated_time, deadline)
+        scheduler = TaskScheduler("tasks.db")
+        scheduler.add_task(task)
+    except Exception as e:
+        print(f"Error adding task: {e}")
+
+def list_tasks(args):
+    """List all tasks."""
+    try:
+        scheduler = TaskScheduler("tasks.db")
+        tasks = scheduler.get_tasks()
+        print("## Tasks")
+        for task in tasks:
+            print(task) 
+
+    except Exception as e:
+        print(f"Error listing tasks: {e}")
+
+def update_task(args):
+    """Update an existing task."""
+    try:
+        scheduler = TaskScheduler("tasks.db")
+        task_ids = scheduler.get_task_ids_by_partial_name(args.name)
+        
+        if task_ids:
+            if args.quiet or len(task_ids) == 1:
+                task_id = task_ids[0]  # Use the first matching task ID
+            else:
+                print(f"Multiple tasks found with the name '{args.name}'. Please choose the correct task ID:")
+                for task_id in task_ids:
+                    print(f"{task_id}: {scheduler.get_task_by_id(task_id)}")
+                task_id = int(input("Enter the task ID: "))
+                
+            task = Task(args.name, args.priority, args.estimated_time, args.deadline)  # Create Task object with new data
+            scheduler.update_task(task_id, task)
+        else:
+            print("No task found with that name.")
+    except Exception as e:
+        print(f"Error updating task: {e}")
+
+def complete_task(args):
+    """Mark a task as completed."""
+    try:
+        scheduler = TaskScheduler("tasks.db")
+        task_ids = scheduler.get_task_ids_by_partial_name(args.name)
+        
+        if task_ids:
+            if args.quiet or len(task_ids) == 1:
+                task_id = task_ids[0]  # Use the first matching task ID
+            else:
+                print(f"Multiple tasks found with the name '{args.name}'. Please choose the correct task ID:")
+                for task_id in task_ids:
+                    print(f"{task_id}: {scheduler.get_task_by_id(task_id)}")
+                task_id = int(input("Enter the task ID: "))
+                
+            scheduler.complete_task(task_id, partial_completion=args.partial)
+        else:
+            print("No task found with that name.")
+    except Exception as e:
+        print(f"Error completing task: {e}")
+
+def cancel_task(args):
+    """Cancel a task."""
+    try:
+        scheduler = TaskScheduler("tasks.db")
+        task_ids = scheduler.get_task_ids_by_partial_name(args.name)
+        
+        if task_ids:
+            if args.quiet or len(task_ids) == 1:
+                task_id = task_ids[0]  # Use the first matching task ID
+            else:
+                print(f"Multiple tasks found with the name '{args.name}'. Please choose the correct task ID:")
+                for task_id in task_ids:
+                    print(f"{task_id}: {scheduler.get_task_by_id(task_id)}")
+                task_id = int(input("Enter the task ID: "))
+                
+            scheduler.cancel_task(task_id)
+        else:
+            print("No task found with that name.")
+    except Exception as e:
+        print(f"Error cancelling task: {e}")
+
+def generate_daily_task_list(args):
+    """Generate daily task list."""
+    try:
+        scheduler = TaskScheduler("tasks.db")
+        daily_task_list = scheduler.create_daily_task_list(args.total_time)
+        print("## ToDo Today")
+        for task in daily_task_list:
+            print(task)
+    except Exception as e:
+        print(f"Error generating daily task list: {e}")
+
+def main():
+    parser = argparse.ArgumentParser(description="Task (Man)ager CLI")
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+
+    add_parser = subparsers.add_parser("add", help="Add a new task")
+    add_parser.add_argument("name", type=str, help="Name of the task")
+    add_parser.add_argument("--priority", type=str, choices=["low", "medium", "high"], default="low", help="Priority of the task (default: low)")
+    add_parser.add_argument("--estimated_time", type=int, default=0, help="Estimated time for the task (default: 0)")
+    add_parser.add_argument("--deadline", type=str, help="Deadline of the task (format: YYYY-MM-DD)")
+
+    list_parser = subparsers.add_parser("list", help="List tasks")
+
+    update_parser = subparsers.add_parser("update", help="Update an existing task")
+    update_parser.add_argument("name", type=str, help="Name of the task to update")
+    update_parser.add_argument("--priority", type=str, choices=["low", "medium", "high"], help="New priority of the task")
+    update_parser.add_argument("--estimated_time", type=int, help="New estimated time for the task")
+    update_parser.add_argument("--deadline", type=str, help="New deadline of the task (format: YYYY-MM-DD)")
+    update_parser.add_argument("--quiet", action="store_true", help="Use the first matching task ID without user interaction")
+
+    complete_parser = subparsers.add_parser("complete", help="Mark a task as completed")
+    complete_parser.add_argument("name", type=str, help="Name of the task to mark as completed")
+    complete_parser.add_argument("--partial", action="store_true", help="Mark the task as partially completed")
+    complete_parser.add_argument("--quiet", action="store_true", help="Use the first matching task ID without user interaction")
+
+    cancel_parser = subparsers.add_parser("cancel", help="Cancel a task")
+    cancel_parser.add_argument("name", type=str, help="Name of the task to cancel")
+    cancel_parser.add_argument("--quiet", action="store_true", help="Use the first matching task ID without user interaction")
+
+    daily_parser = subparsers.add_parser("daily", help="Generate daily task list")
+    daily_parser.add_argument("--total_time", type=int, required=True, help="Total available time for the daily task list (in hours)")
+
+    args = parser.parse_args()
+
+    if args.command == "add":
+        add_task(args)
+    elif args.command == "list":
+        list_tasks(args)
+    elif args.command == "update":
+        update_task(args)
+    elif args.command == "complete":
+        complete_task(args)
+    elif args.command == "cancel":
+        cancel_task(args)
+    elif args.command == "daily":
+        generate_daily_task_list(args)
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Scheduler</title>
+</head>
+<body>
+    <h1>Task Scheduler</h1>
+
+    <h2>Tasks</h2>
+    <ul id="task-list">
+        <!-- Aqui serão listadas as tarefas -->
+    </ul>
+
+    <h2>Add Task</h2>
+    <form id="add-task-form">
+        <label for="task-name">Task Name:</label>
+        <input type="text" id="task-name" name="task-name" required><br><br>
+
+        <label for="priority">Priority:</label>
+        <select id="priority" name="priority">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+        </select><br><br>
+
+        <label for="estimated-time">Estimated Time:</label>
+        <input type="number" id="estimated-time" name="estimated-time" required><br><br>
+
+        <label for="deadline">Deadline:</label>
+        <input type="date" id="deadline" name="deadline"><br><br>
+
+        <button type="submit">Add Task</button>
+    </form>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            // Função para carregar as tarefas quando a página é carregada
+            loadTasks();
+    
+            // Adiciona um ouvinte de evento para o formulário de adicionar tarefa
+            document.getElementById("add-task-form").addEventListener("submit", function(event) {
+                event.preventDefault(); // Evita o comportamento padrão do formulário de recarregar a página
+                addTask(); // Chama a função para adicionar uma nova tarefa
+            });
+        });
+    
+        // Função para carregar as tarefas existentes do servidor
+        function loadTasks() {
+            fetch("/tasks") // Faz uma solicitação GET para o endpoint /tasks no servidor Flask
+                .then(response => response.json()) // Converte a resposta em JSON
+                .then(data => {
+                    const taskList = document.getElementById("task-list");
+                    taskList.innerHTML = ""; // Limpa a lista de tarefas antes de adicionar as novas
+                    data.forEach(task => {
+                        const listItem = document.createElement("li");
+                        listItem.textContent = `${task.name} (Priority: ${task.priority}, Estimated Time: ${task.estimated_time}, Deadline: ${task.deadline})`;
+                        if (task.completed) {
+                            listItem.innerHTML += " - <span style='color: green;'>Completed</span>";
+                        }
+                        taskList.appendChild(listItem);
+                    });
+                })
+                .catch(error => console.error("Error loading tasks:", error));
+        }
+    
+        // Função para adicionar uma nova tarefa
+        function addTask() {
+            const formData = new FormData(document.getElementById("add-task-form"));
+            const taskData = {
+                name: formData.get("task-name"),
+                priority: formData.get("priority"),
+                estimated_time: parseInt(formData.get("estimated-time")),
+                deadline: formData.get("deadline")
+            };
+    
+            fetch("/tasks", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(taskData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("Failed to add task");
+                }
+                loadTasks(); // Recarrega a lista de tarefas após adicionar uma nova tarefa
+            })
+            .catch(error => console.error("Error adding task:", error));
+        }
+    </script>
+    
+</body>
+</html>
